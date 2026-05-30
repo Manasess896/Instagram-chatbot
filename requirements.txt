@@ -1,0 +1,10 @@
+Flask
+python-dotenv
+requests
+groq
+pymongo
+dnspython
+gunicorn
+google-genai
+Pillow
+certifi

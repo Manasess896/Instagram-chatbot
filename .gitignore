@@ -1,0 +1,10 @@
+.env
+.venv/
+.vscode/
+ai-workers\__pycache__/
+ai-workers/publisher.py
+ai-workers/story.py
+ai-workers/vedio.py
+mentions.py
+post-comments.py
+.copilotignore
