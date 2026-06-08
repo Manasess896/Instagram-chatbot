@@ -1,12 +1,12 @@
 # this file uses Groq api to create a small profile for user based on their recent messages and history this profile is then included in the prompt to give the info more info about the user before replying to give the ai more context 
 
 import logging
-import time
 import os
+import time
 from datetime import datetime, timezone
 from typing import Any, cast
+
 from groq import Groq
-from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -52,25 +52,7 @@ def _format_profile_facts(user_facts: dict, recent_messages: list, new_message: 
     return "\n".join(lines) if lines else "No structured user facts available."
 
 
-def _generate_profile_summary_with_gemini(ai_client, system_instruction: str, prompt: str) -> str | None:
-    if ai_client is None:
-        return None
-
-    try:
-        completion = ai_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[{"role": "user", "parts": [{"text": prompt}]}],
-            config=types.GenerateContentConfig(system_instruction=system_instruction),
-        )
-        content = getattr(completion, "text", "") or ""
-        summary = content.strip()
-        return summary or None
-    except Exception as exc:
-        logger.warning("Gemini profile update failed: %s", exc)
-        return None
-
-
-def update_user_profile_in_background(user_id: str, new_message: str, db, ai_client=None, user_name: str | None = None):
+def update_user_profile_in_background(user_id: str, new_message: str, db, user_name: str | None = None):
     if db is None:
         return
 
@@ -100,36 +82,42 @@ def update_user_profile_in_background(user_id: str, new_message: str, db, ai_cli
 
         messages = cast(Any, [
             {"role": "system", "content": system_instruction},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ])
 
-        new_profile_summary = _generate_profile_summary_with_gemini(ai_client, system_instruction, prompt)
+        new_profile_summary = ""
+        if groq_client is not None:
+            try:
+                completion = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    temperature=0.3,
+                )
 
-        if not new_profile_summary and groq_client is not None:
-            completion = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                temperature=0.3
-            )
-
-            content = completion.choices[0].message.content
-            new_profile_summary = content.strip() if content else ""
+                content = completion.choices[0].message.content
+                new_profile_summary = content.strip() if content else ""
+            except Exception as e:
+                logger.warning("Groq profile summary generation failed for %s: %s", user_id[-4:], e)
+                new_profile_summary = ""
 
         if not new_profile_summary:
             logger.warning("Skipping profile update for %s because no AI summary could be generated", user_id[-4:])
             return
 
-        profile_collection.update_one(
-            {"user_id": user_id},
-            {
-                "$set": {
-                    "profile_summary": new_profile_summary,
-                    "last_updated": datetime.now(timezone.utc),
-                    "source": "user_info",
-                }
-            },
-            upsert=True
-        )
+        try:
+            profile_collection.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "profile_summary": new_profile_summary,
+                        "last_updated": datetime.now(timezone.utc),
+                        "source": "user_info",
+                    }
+                },
+                upsert=True
+            )
+        except Exception as e:
+            logger.warning("Failed to save profile update for %s: %s", user_id[-4:], e)
 
     except Exception as e:
         logger.error("Error updating user profile in background: %s", e)
