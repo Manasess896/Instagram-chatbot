@@ -683,10 +683,9 @@ def _handle_image_generation_message(
 
     if collection is not None and update_user_profile_in_background:
         try:
-            ai_client = getattr(gemini, "gemini_client", None)
             threading.Thread(
                 target=update_user_profile_in_background,
-                args=(user_id, prompt_text, db, ai_client, user_name),
+                args=(user_id, prompt_text, db, user_name),
                 daemon=True,
             ).start()
         except Exception as exc:
@@ -771,10 +770,9 @@ def _handle_text_message(user_id: str, text_body: str, user_name: str | None, re
 
     if collection is not None and update_user_profile_in_background:
         try:
-            ai_client = getattr(gemini, "gemini_client", None)
             threading.Thread(
                 target=update_user_profile_in_background,
-                args=(user_id, text_body, db, ai_client, user_name),
+                args=(user_id, text_body, db, user_name),
                 daemon=True,
             ).start()
         except Exception as exc:
@@ -848,10 +846,9 @@ def _handle_media_message(
 
     if collection is not None and update_user_profile_in_background:
         try:
-            ai_client = getattr(gemini, "gemini_client", None)
             threading.Thread(
                 target=update_user_profile_in_background,
-                args=(user_id, f"[{reply_label.upper()}]", db, ai_client, user_name),
+                args=(user_id, f"[{reply_label.upper()}]", db, user_name),
                 daemon=True,
             ).start()
         except Exception as exc:
