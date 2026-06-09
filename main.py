@@ -242,6 +242,19 @@ def save_user_info(
         logger.error("Failed to save profile facts for user %s", user_id[-4:])
         return False
 
+
+def should_update_user_profile(user_id: str, interval: int = 5) -> bool:
+    if user_info_collection is None or update_user_profile_in_background is None:
+        return False
+
+    try:
+        user_info = user_info_collection.find_one({"user_id": user_id}, {"message_count": 1}) or {}
+        message_count = int(user_info.get("message_count", 0))
+        return message_count > 0 and message_count % interval == 0
+    except Exception as exc:
+        dev_log(exc, "ERR_PROFILE_CHECK")
+        return False
+
 def save_message_to_db(
     user_id: str,
     message: str,
@@ -681,7 +694,7 @@ def _handle_image_generation_message(
         user_name=user_name,
     )
 
-    if collection is not None and update_user_profile_in_background:
+    if should_update_user_profile(user_id):
         try:
             threading.Thread(
                 target=update_user_profile_in_background,
@@ -768,7 +781,7 @@ def _handle_text_message(user_id: str, text_body: str, user_name: str | None, re
         user_name=user_name,
     )
 
-    if collection is not None and update_user_profile_in_background:
+    if should_update_user_profile(user_id):
         try:
             threading.Thread(
                 target=update_user_profile_in_background,
@@ -844,7 +857,7 @@ def _handle_media_message(
     save_message_to_db(user_id, processing_result, "bot", "text")
     send_message(user_id, processing_result, reply_to_mid=reply_to_mid)
 
-    if collection is not None and update_user_profile_in_background:
+    if should_update_user_profile(user_id):
         try:
             threading.Thread(
                 target=update_user_profile_in_background,

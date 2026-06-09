@@ -16,7 +16,7 @@ if GROQ_API_KEY:
     try:
         groq_client = Groq(api_key=GROQ_API_KEY)
     except Exception as e:
-        logger.error(f"Groq setup failed for user profile: {e}")
+        logger.warning(f"Groq setup failed for user profile: {e}")
 
 
 def _format_profile_facts(user_facts: dict, recent_messages: list, new_message: str, user_name: str | None) -> str:
@@ -97,11 +97,10 @@ def update_user_profile_in_background(user_id: str, new_message: str, db, user_n
                 content = completion.choices[0].message.content
                 new_profile_summary = content.strip() if content else ""
             except Exception as e:
-                logger.warning("Groq profile summary generation failed for %s: %s", user_id[-4:], e)
+                logger.info("Groq profile summary generation unavailable for %s: %s", user_id[-4:], e)
                 new_profile_summary = ""
 
         if not new_profile_summary:
-            logger.warning("Skipping profile update for %s because no AI summary could be generated", user_id[-4:])
             return
 
         try:
